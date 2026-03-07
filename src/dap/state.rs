@@ -50,6 +50,20 @@ where
             State::Invalid => unreachable!(),
         }
     }
+
+    pub fn mutable_deps(&mut self) -> &mut DEPS {
+        if let State::None { deps, .. } = self {
+            return deps;
+        }
+
+        self.to_none();
+
+        if let State::None { deps, .. } = self {
+            deps
+        } else {
+            unreachable!()
+        }
+    }
 }
 
 impl<DEPS, SWD, JTAG> State<DEPS, SWD, JTAG>
