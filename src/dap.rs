@@ -257,6 +257,10 @@ where
         }
     }
 
+    pub fn mutable_deps(&mut self) -> &mut DEPS {
+        self.state.mutable_deps()
+    }
+
     fn process_info(&self, mut req: Request, resp: &mut ResponseWriter) {
         match DapInfoID::try_from(req.next_u8()) {
             // Return 0-length string for VendorID, ProductID, SerialNumber
