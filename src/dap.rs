@@ -149,6 +149,13 @@ where
 
         let resp = &mut ResponseWriter::new(req.command, rbuf);
 
+        self.handle_decoded_command(req, resp)
+    }
+
+    /// Process a new decoded CMSIS-DAP command from `req`.
+    ///
+    /// Returns number of bytes written to response buffer.
+    fn handle_decoded_command(&mut self, req: Request, resp: &mut ResponseWriter) -> usize {
         trace!("Dap command: {:?}", req.command);
 
         match req.command {
@@ -1198,8 +1205,11 @@ where
         // new requests. Therefore there's nothing to do here.
     }
 
-    fn process_execute_commands(&self, _req: Request, _resp: &mut ResponseWriter) {
-        // TODO: Implement one day.
+    fn process_execute_commands(&mut self, mut req: Request, resp: &mut ResponseWriter) {
+        resp.write_u8(req.next_u8()); // copy the sub-request count
+        while let Some(req) = req.next_sub_request() {
+            self.handle_decoded_command(req, resp);
+        }
     }
 
     fn process_queue_commands(&self, _req: Request, _resp: &mut ResponseWriter) {
