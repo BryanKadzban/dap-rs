@@ -1,10 +1,10 @@
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
-#[derive(Copy, Clone, TryFromPrimitive, PartialEq, Debug)]
+#[derive(Copy, Clone, TryFromPrimitive, IntoPrimitive, PartialEq, Debug)]
 #[allow(non_camel_case_types)]
 #[repr(u8)]
-pub enum Command {
+pub enum StandardCommand {
     // General Commands
     DAP_Info = 0x00,
     DAP_HostStatus = 0x01,
@@ -49,6 +49,34 @@ pub enum Command {
 
     // Unimplemented Command Response
     Unimplemented = 0xFF,
+}
+
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub enum Command {
+    Standard(StandardCommand),
+    Vendor(u8),
+}
+
+impl TryFrom<u8> for Command {
+    type Error = <StandardCommand as TryFrom<u8>>::Error;
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        if value >= 0x80 && value <= 0x9f {
+            Ok(Self::Vendor(value))
+        } else {
+            StandardCommand::try_from(value).map(|sc| Self::Standard(sc))
+        }
+    }
+}
+
+impl From<Command> for u8 {
+    fn from(value: Command) -> u8 {
+        match value {
+            Command::Standard(cmd) => cmd.into(),
+            Command::Vendor(id) => id + 0x80,
+        }
+    }
 }
 
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]

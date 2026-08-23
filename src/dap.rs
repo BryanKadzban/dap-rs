@@ -141,7 +141,12 @@ where
     /// Process a new CMSIS-DAP command from `report`.
     ///
     /// Returns number of bytes written to response buffer.
-    pub fn process_command(&mut self, report: &[u8], rbuf: &mut [u8]) -> usize {
+    pub fn process_command<F: FnMut(&Request, &mut ResponseWriter)>(
+        &mut self,
+        report: &[u8],
+        rbuf: &mut [u8],
+        mut handle_vendor_command: F,
+    ) -> usize {
         let req = match Request::from_report(report) {
             Some(req) => req,
             None => return 0,
@@ -149,49 +154,93 @@ where
 
         let resp = &mut ResponseWriter::new(req.command, rbuf);
 
-        self.handle_decoded_command(req, resp)
+        self.handle_decoded_command(req, resp, &mut handle_vendor_command)
     }
 
     /// Process a new decoded CMSIS-DAP command from `req`.
     ///
     /// Returns number of bytes written to response buffer.
-    fn handle_decoded_command(&mut self, req: Request, resp: &mut ResponseWriter) -> usize {
+    fn handle_decoded_command<F: FnMut(&Request, &mut ResponseWriter)>(
+        &mut self,
+        req: Request,
+        resp: &mut ResponseWriter,
+        handle_vendor_command: &mut F,
+    ) -> usize {
         trace!("Dap command: {:?}", req.command);
 
         match req.command {
-            Command::DAP_Info => self.process_info(req, resp),
-            Command::DAP_HostStatus => self.process_host_status(req, resp),
-            Command::DAP_Connect => self.process_connect(req, resp),
-            Command::DAP_Disconnect => self.process_disconnect(req, resp),
-            Command::DAP_WriteABORT => self.process_write_abort(req, resp),
-            Command::DAP_Delay => self.process_delay(req, resp),
-            Command::DAP_ResetTarget => self.process_reset_target(req, resp),
-            Command::DAP_SWJ_Pins => self.process_swj_pins(req, resp),
-            Command::DAP_SWJ_Clock => self.process_swj_clock(req, resp),
-            Command::DAP_SWJ_Sequence => self.process_swj_sequence(req, resp),
-            Command::DAP_SWD_Configure => self.process_swd_configure(req, resp),
-            Command::DAP_SWD_Sequence => self.process_swd_sequence(req, resp),
-            Command::DAP_SWO_Transport => self.process_swo_transport(req, resp),
-            Command::DAP_SWO_Mode => self.process_swo_mode(req, resp),
-            Command::DAP_SWO_Baudrate => self.process_swo_baudrate(req, resp),
-            Command::DAP_SWO_Control => self.process_swo_control(req, resp),
-            Command::DAP_SWO_Status => self.process_swo_status(req, resp),
-            Command::DAP_SWO_ExtendedStatus => self.process_swo_extended_status(req, resp),
-            Command::DAP_SWO_Data => self.process_swo_data(req, resp),
-            Command::DAP_JTAG_Configure => self.process_jtag_configure(req, resp),
-            Command::DAP_JTAG_IDCODE => self.process_jtag_idcode(req, resp),
-            Command::DAP_JTAG_Sequence => self.process_jtag_sequence(req, resp),
-            Command::DAP_TransferConfigure => self.process_transfer_configure(req, resp),
-            Command::DAP_Transfer => self.process_transfer(req, resp),
-            Command::DAP_TransferBlock => self.process_transfer_block(req, resp),
-            Command::DAP_TransferAbort => {
+            Command::Standard(StandardCommand::DAP_Info) => self.process_info(req, resp),
+            Command::Standard(StandardCommand::DAP_HostStatus) => {
+                self.process_host_status(req, resp)
+            }
+            Command::Standard(StandardCommand::DAP_Connect) => self.process_connect(req, resp),
+            Command::Standard(StandardCommand::DAP_Disconnect) => {
+                self.process_disconnect(req, resp)
+            }
+            Command::Standard(StandardCommand::DAP_WriteABORT) => {
+                self.process_write_abort(req, resp)
+            }
+            Command::Standard(StandardCommand::DAP_Delay) => self.process_delay(req, resp),
+            Command::Standard(StandardCommand::DAP_ResetTarget) => {
+                self.process_reset_target(req, resp)
+            }
+            Command::Standard(StandardCommand::DAP_SWJ_Pins) => self.process_swj_pins(req, resp),
+            Command::Standard(StandardCommand::DAP_SWJ_Clock) => self.process_swj_clock(req, resp),
+            Command::Standard(StandardCommand::DAP_SWJ_Sequence) => {
+                self.process_swj_sequence(req, resp)
+            }
+            Command::Standard(StandardCommand::DAP_SWD_Configure) => {
+                self.process_swd_configure(req, resp)
+            }
+            Command::Standard(StandardCommand::DAP_SWD_Sequence) => {
+                self.process_swd_sequence(req, resp)
+            }
+            Command::Standard(StandardCommand::DAP_SWO_Transport) => {
+                self.process_swo_transport(req, resp)
+            }
+            Command::Standard(StandardCommand::DAP_SWO_Mode) => self.process_swo_mode(req, resp),
+            Command::Standard(StandardCommand::DAP_SWO_Baudrate) => {
+                self.process_swo_baudrate(req, resp)
+            }
+            Command::Standard(StandardCommand::DAP_SWO_Control) => {
+                self.process_swo_control(req, resp)
+            }
+            Command::Standard(StandardCommand::DAP_SWO_Status) => {
+                self.process_swo_status(req, resp)
+            }
+            Command::Standard(StandardCommand::DAP_SWO_ExtendedStatus) => {
+                self.process_swo_extended_status(req, resp)
+            }
+            Command::Standard(StandardCommand::DAP_SWO_Data) => self.process_swo_data(req, resp),
+            Command::Standard(StandardCommand::DAP_JTAG_Configure) => {
+                self.process_jtag_configure(req, resp)
+            }
+            Command::Standard(StandardCommand::DAP_JTAG_IDCODE) => {
+                self.process_jtag_idcode(req, resp)
+            }
+            Command::Standard(StandardCommand::DAP_JTAG_Sequence) => {
+                self.process_jtag_sequence(req, resp)
+            }
+            Command::Standard(StandardCommand::DAP_TransferConfigure) => {
+                self.process_transfer_configure(req, resp)
+            }
+            Command::Standard(StandardCommand::DAP_Transfer) => self.process_transfer(req, resp),
+            Command::Standard(StandardCommand::DAP_TransferBlock) => {
+                self.process_transfer_block(req, resp)
+            }
+            Command::Standard(StandardCommand::DAP_TransferAbort) => {
                 self.process_transfer_abort();
                 // Do not send a response for transfer abort commands
                 return 0;
             }
-            Command::DAP_ExecuteCommands => self.process_execute_commands(req, resp),
-            Command::DAP_QueueCommands => self.process_queue_commands(req, resp),
-            Command::Unimplemented => {}
+            Command::Standard(StandardCommand::DAP_ExecuteCommands) => {
+                self.process_execute_commands(req, resp, handle_vendor_command)
+            }
+            Command::Standard(StandardCommand::DAP_QueueCommands) => {
+                self.process_queue_commands(req, resp)
+            }
+            Command::Standard(StandardCommand::Unimplemented) => {}
+            Command::Vendor(_) => self.process_vendor_command(req, resp, handle_vendor_command),
         }
 
         resp.idx
@@ -1205,15 +1254,29 @@ where
         // new requests. Therefore there's nothing to do here.
     }
 
-    fn process_execute_commands(&mut self, mut req: Request, resp: &mut ResponseWriter) {
+    fn process_execute_commands<F: FnMut(&Request, &mut ResponseWriter)>(
+        &mut self,
+        mut req: Request,
+        resp: &mut ResponseWriter,
+        handle_vendor_command: &mut F,
+    ) {
         resp.write_u8(req.next_u8()); // copy the sub-request count
         while let Some(req) = req.next_sub_request() {
-            self.handle_decoded_command(req, resp);
+            self.handle_decoded_command(req, resp, handle_vendor_command);
         }
     }
 
     fn process_queue_commands(&self, _req: Request, _resp: &mut ResponseWriter) {
         // TODO: Implement one day.
+    }
+
+    fn process_vendor_command<F: FnMut(&Request, &mut ResponseWriter)>(
+        &mut self,
+        req: Request,
+        resp: &mut ResponseWriter,
+        handle_vendor_command: &mut F,
+    ) {
+        handle_vendor_command(&req, resp)
     }
 }
 
@@ -1325,7 +1388,7 @@ mod test {
             }
             _ => assert!(false, "can't switch to swd"),
         }
-        let rsize = dap.process_command(&report, &mut rbuf);
+        let rsize = dap.process_command(&report, &mut rbuf, |_, _| {});
         assert_eq!(rsize, 2);
         assert_eq!(&rbuf[..2], &[0x1Du8, 0x00])
     }
@@ -1352,7 +1415,7 @@ mod test {
             }
             _ => assert!(false, "can't switch to swd"),
         }
-        let rsize = dap.process_command(&report, &mut rbuf);
+        let rsize = dap.process_command(&report, &mut rbuf, |_, _| {});
         assert_eq!(rsize, 2);
         assert_eq!(&rbuf[..2], &[0x1Du8, 0x00])
     }
@@ -1379,7 +1442,7 @@ mod test {
             }
             _ => assert!(false, "can't switch to swd"),
         }
-        let rsize = dap.process_command(&report, &mut rbuf);
+        let rsize = dap.process_command(&report, &mut rbuf, |_, _| {});
         assert_eq!(rsize, 9);
         assert_eq!(
             &rbuf[..9],
@@ -1410,7 +1473,7 @@ mod test {
             }
             _ => assert!(false, "can't switch to swd"),
         }
-        let rsize = dap.process_command(&report, &mut rbuf);
+        let rsize = dap.process_command(&report, &mut rbuf, |_, _| {});
         assert_eq!(rsize, 10);
         assert_eq!(
             &rbuf[..10],
@@ -1461,7 +1524,7 @@ mod test {
             }
             _ => assert!(false, "can't switch to swd"),
         }
-        let rsize = dap.process_command(&report, &mut rbuf);
+        let rsize = dap.process_command(&report, &mut rbuf, |_, _| {});
         assert_eq!(rsize, 3);
         assert_eq!(&rbuf[..3], &[0x1Du8, 0x00, 0x1F])
     }

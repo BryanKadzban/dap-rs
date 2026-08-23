@@ -7,7 +7,7 @@ pub struct ResponseWriter<'a> {
 
 impl<'a> ResponseWriter<'a> {
     pub fn new(command: Command, buf: &'a mut [u8]) -> Self {
-        buf[0] = command as u8;
+        buf[0] = command.into();
         ResponseWriter { buf, idx: 1 }
     }
 
