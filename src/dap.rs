@@ -1262,7 +1262,9 @@ where
     ) {
         resp.write_u8(req.next_u8()); // copy the sub-request count
         while let Some(req) = req.next_sub_request() {
-            self.handle_decoded_command(req, resp, handle_vendor_command);
+            resp.with_remaining(req.command, |writer| {
+                self.handle_decoded_command(req, writer, handle_vendor_command)
+            });
         }
     }
 
@@ -1477,7 +1479,9 @@ mod test {
         assert_eq!(rsize, 10);
         assert_eq!(
             &rbuf[..10],
-            &[0x1Du8, 0x00, 0xFFu8, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xC0, 0x00]
+            &[
+                0x1Du8, 0x00, 0xFFu8, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xC0, 0x00
+            ]
         )
     }
 

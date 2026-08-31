@@ -43,14 +43,23 @@ impl<'a> ResponseWriter<'a> {
 
     pub fn write_u8_at(&mut self, idx: usize, value: u8) {
         self.buf[idx] = value;
+        if idx >= self.idx {
+            self.idx = idx + 1;
+        }
     }
 
     pub fn write_u16_at(&mut self, idx: usize, value: u16) {
         let value = value.to_le_bytes();
         self.buf[idx..idx + 2].copy_from_slice(&value);
+        if idx + 1 >= self.idx {
+            self.idx = idx + 2;
+        }
     }
 
     pub fn mut_at(&mut self, idx: usize) -> &mut u8 {
+        if idx >= self.idx {
+            self.idx = idx + 1;
+        }
         &mut self.buf[idx]
     }
 
@@ -60,6 +69,17 @@ impl<'a> ResponseWriter<'a> {
 
     pub fn remaining(&mut self) -> &mut [u8] {
         &mut self.buf[self.idx..]
+    }
+
+    pub fn with_remaining<T, F: FnOnce(&mut ResponseWriter<'_>) -> T>(
+        &mut self,
+        command: Command,
+        f: F,
+    ) -> T {
+        let mut sub_writer = ResponseWriter::new(command, &mut self.buf[self.idx..]);
+        let ret = f(&mut sub_writer);
+        self.idx += sub_writer.idx;
+        ret
     }
 
     pub fn skip(&mut self, n: usize) {
