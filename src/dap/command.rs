@@ -74,7 +74,7 @@ impl From<Command> for u8 {
     fn from(value: Command) -> u8 {
         match value {
             Command::Standard(cmd) => cmd.into(),
-            Command::Vendor(id) => id + 0x80,
+            Command::Vendor(id) => id,
         }
     }
 }
